@@ -1,0 +1,16 @@
+
+# Secrets
+.env
+.env.*
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+
+# Local development artifacts
+.DS_Store
+.ipynb_checkpoints/
