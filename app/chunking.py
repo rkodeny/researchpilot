@@ -1,55 +1,100 @@
 from app.ingestion import extract_text_from_pdf
+from nltk.tokenize import sent_tokenize
+
+
 
 def chunk_text(
-        text : str,
-        chunk_size : int = 1000,
-        overlap : int = 150,
+    text: str,
+    chunk_size: int = 1000,
+    overlap: int = 150,
 ) -> list[str]:
-    """split text into overlapping chunks, measured in characters."""
+    """Split Markdown text into sentence-aware chunks, keeping headings attached."""
+
     if chunk_size <= 0:
-        raise ValueError("chunk must be positive")
+        raise ValueError("chunk_size must be positive")
 
     if overlap < 0 or overlap >= chunk_size:
         raise ValueError("overlap must be >= 0 and smaller than chunk_size")
 
     text = text.strip()
-
     if not text:
         return []
 
+    sections = []
+    current_section = []
+
+    for line in text.splitlines():
+        if line.startswith("#") and current_section:
+            sections.append("\n".join(current_section).strip())
+            current_section = []
+
+        current_section.append(line)
+
+    if current_section:
+        sections.append("\n".join(current_section).strip())
+
     chunks = []
-    start = 0
 
-    while start < len(text):
-        end = min(start + chunk_size, len(text))
+    for section in sections:
+        if not section:
+            continue
 
-        if end < len(text):           # Find the best place to break the chunk
-            boundary = max(
-                text.rfind("\n", start, end),
-                text.rfind(" ", start, end),
-            )
+        lines = section.splitlines()
+        heading = ""
 
-            # Avoid creating very small chunks
-            if boundary > start + chunk_size // 2:
-                end = boundary 
+        if lines[0].startswith("#"):
+            heading = lines[0].strip()
+            body = "\n".join(lines[1:]).strip()
+        else:
+            body = section
 
-        chunk = text[start:end].strip()
+        if not body:
+            continue
 
-        if chunk:
-            chunks.append(chunk)
+        sentences = sent_tokenize(body.replace("\n", " "))
 
-        if end >= len(text):
-            break
+        current_chunk = []
+        current_length = len(heading) + 1 if heading else 0
 
-        # some text from the previous chunk is included in the next chunk
-        start = max(start + 1, end - overlap)
+        for sentence in sentences:
+            sentence_length = len(sentence)
 
-    return chunks 
+            if current_chunk and current_length + sentence_length + 1 > chunk_size:
+                chunk_text_value = " ".join(current_chunk)
+                if heading:
+                    chunk_text_value = heading + "\n" + chunk_text_value
+
+                chunks.append(chunk_text_value)
+
+                overlap_sentences = []
+                overlap_length = 0
+
+                for previous in reversed(current_chunk):
+                    if overlap_length + len(previous) + 1 > overlap:
+                        break
+                    overlap_sentences.insert(0, previous)
+                    overlap_length += len(previous) + 1
+
+                current_chunk = overlap_sentences
+                current_length = sum(len(s) + 1 for s in current_chunk)
+
+            current_chunk.append(sentence)
+            current_length += sentence_length + 1
+
+        if current_chunk:
+            chunk_text_value = " ".join(current_chunk)
+            if heading:
+                chunk_text_value = heading + "\n" + chunk_text_value
+
+            chunks.append(chunk_text_value)
+
+    return chunks
+
 
 def chunk_pages(
         pages : list[dict],
         chunk_size : int = 1000,
-        overlap = 150,
+        overlap: int = 150,
 ) -> list[dict]:
     """chunk extracted PDF pages while preserving source metadata."""
 

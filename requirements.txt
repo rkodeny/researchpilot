@@ -2,3 +2,6 @@ pymupdf
 sentence-transformers
 faiss-cpu
 numpy
+google-genai
+python-dotenv
+nltk

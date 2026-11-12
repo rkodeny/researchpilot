@@ -40,30 +40,44 @@ def generate_answer(
 
     evidence = "\n\n".join(evidence_sections)
 
-    prompt = (
-        f"""
-            You are ResearchPilot, an academic research assistant.
+    
+    prompt = f"""
+        You are ResearchPilot, an academic research assistant.
 
-            Answer the user's question using only the supplied research passages.
+            Answer the user's question using ONLY the supplied research passages.
 
-            Rules:
-                1. Do not invent facts or citations.
-                2. If the evidence is insufficient, explicitly say so.
-                3. Distinguish what the paper states from your own explanation.
-                4. Cite supporting claims using [Source N, p. X], where N
-                matches a supplied source and X is its actual page number.
-                5. Do not cite a source that does not support the claim.
-                6. Explain the answer clearly and concisely.
+            STRICT EVIDENCE RULES:
 
-                User question:
-                {query}
+            1. Every factual claim about the research paper must have a citation.
+            2. Use citations in this exact format: [Source N, p. X].
+            3. N must match the supplied source number.
+            4. X must match the actual page number provided for that source.
+            5. Before citing a source, verify that its passage directly supports
+            the specific claim.
+            6. Never invent a source number, page number, quotation, or finding.
+            7. If multiple sources support a claim, cite them together.
+            8. If the passages do not support a claim, explicitly state that
+            the available evidence is insufficient.
+            9. Do not present your own interpretation as something the paper
+            explicitly states.
+            10. Avoid repeating the same evidence in multiple sections.
 
-                Retrieved research passages:
-                {evidence}
+            ANSWER STRUCTURE:
 
-                Write the answer with relevant citations.
-                """
-    )
+            - Begin with a direct answer to the question.
+            - Organize important findings into clear sections or bullet points.
+            - Explain how the findings relate to the question.
+            - End with a short conclusion when appropriate.
+
+            USER QUESTION:
+            {query}
+
+            RETRIEVED RESEARCH PASSAGES:
+            {evidence}
+
+            Write a clear, accurate, evidence-grounded answer.
+            """
+
 
     response = None
 
@@ -74,15 +88,19 @@ def generate_answer(
                 contents=prompt,
             )
             break
+
         except ServerError as error:
             if attempt == 2:
                 raise
 
+            wait_time = 2 ** (attempt + 1)
             print(
                 f"Gemini temporarily unavailable. "
-                f"Retrying in {2 ** (attempt + 1)} seconds..."
+                f"Retrying in {wait_time} seconds..."
             )
-            time.sleep(2 ** (attempt + 1))
+            time.sleep(wait_time)
+
     if response is None or not response.text:
         raise RuntimeError("The model returned an empty response.")
+    
     return response.text.strip()

@@ -105,7 +105,7 @@ if __name__ == "__main__":
                     chunks=chunks,
                     index=index,
                     model=model,
-                    top_k = 5,
+                    top_k = 8,
                 )
                 print("\nGenerating research answer...")
                 answer = generate_answer(query, results)
